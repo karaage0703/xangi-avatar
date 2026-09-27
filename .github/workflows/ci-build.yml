@@ -27,4 +27,5 @@ jobs:
             node --test release-scripts/sync-release-tree.test.mjs
           fi
       - run: npm run build
+      - run: npm run test:extension
       - run: npm audit --omit=dev --audit-level=high

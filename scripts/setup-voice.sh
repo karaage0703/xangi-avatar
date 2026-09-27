@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SOURCE="${1:-${XANGI_STACKCHAN_DIR:-}}"
-VOICE="$ROOT/.voice"
+VOICE="${AVATAR_VOICE_ROOT:-$ROOT/.voice}"
 
 if [[ -z "$SOURCE" ]]; then
   echo "usage: npm run setup:voice -- /path/to/xangi-stackchan" >&2

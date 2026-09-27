@@ -2,6 +2,20 @@
 
 # xangi-avatar setup
 
+## Add as a xangi extension
+
+Enter `https://github.com/karaage0703/xangi-avatar` in xangi's extension installer. Run `./scripts/prepare-update` in the downloaded directory, then register and start the manifest. The managed runtime inherits the host xangi URL. Open the extension UI and select “Avatarを開く” to open the dedicated Avatar page. Updates run the same dependency installation and build step.
+
+If a temporary launcher with the same ID already exists, inspect its registration, running port and settings before proposing migration. Do not automatically remove the registration, stop an existing process or move settings.
+
+Persistent data uses `AVATAR_DATA_DIR`, otherwise `DATA_DIR/extensions/data/xangi-avatar`, or `<workspace>/.xangi/extensions/data/xangi-avatar` when DATA_DIR is unset. Character settings, Notion destination, captures and voice files survive source updates. Put configuration in `config.env` inside this data directory (mode 0600 when it contains secrets). Existing settings are not automatically migrated.
+
+The default listener is `127.0.0.1:4173`; the launcher opens `http://localhost:4173/` on the same computer. Port conflicts fail startup. Use `AVATAR_PORT` for side-by-side testing.
+
+For another device, configure an authenticated HTTPS reverse proxy and set a verified `AVATAR_PUBLIC_URL`. Microphone and screen sharing require HTTPS. Only set `AVATAR_HOST=0.0.0.0` when wider listening is needed. The dedicated Avatar server has no user authentication of its own; do not expose it directly to the Internet.
+
+Speech recognition and local Piper need separate setup. Set `AVATAR_VOICE_ROOT` for existing voice assets or `AVATAR_VOICE_URL` for an external voice server. When running `npm run setup:voice -- /path/to/xangi-stackchan`, set `AVATAR_VOICE_ROOT` to the persistent voice directory. Browser speech does not need a voice server.
+
 ## Prepare Avatar
 
 1. Check that Node.js 20.19+ or 22.12+, npm, and xangi are available. Do not install system packages or use `sudo` automatically.

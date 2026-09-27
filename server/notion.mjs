@@ -78,7 +78,7 @@ export function createNotionConversationLog({
   fetchImpl = globalThis.fetch,
   baseUrl = DEFAULT_NOTION_URL,
   notionVersion = DEFAULT_NOTION_VERSION,
-  settingsFile = DEFAULT_SETTINGS_FILE,
+  settingsFile = process.env.AVATAR_NOTION_SETTINGS_FILE || DEFAULT_SETTINGS_FILE,
 } = {}) {
   const normalizedTokenFile = String(tokenFile || '').trim();
   const normalizedToken = String(token || '').trim() || (normalizedTokenFile ? readFileSync(normalizedTokenFile, 'utf8').trim() : '');

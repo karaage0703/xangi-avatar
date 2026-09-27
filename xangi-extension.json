@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 2,
+  "id": "xangi-avatar",
+  "displayName": "xangi-avatar",
+  "description": "音声会話・画面共有・OBS用のAvatarを起動します。",
+  "version": "0.1.1",
+  "entrypoint": "scripts/xangi-extension",
+  "runtime": {
+    "kind": "managed-http"
+  },
+  "setup": {
+    "instructions": "XANGI_SETUP.md"
+  },
+  "update": {
+    "prepare": {
+      "command": "./scripts/prepare-update",
+      "args": []
+    }
+  },
+  "permissions": [
+    "Avatar HTTPサーバーを起動",
+    "接続先xangiのAgentとの会話",
+    "専用データディレクトリへ設定と一時画像を保存"
+  ],
+  "ui": {
+    "capability": "avatar.ui",
+    "path": "/"
+  },
+  "capabilities": [
+    {
+      "id": "avatar.ui",
+      "protocol": "http",
+      "healthPath": "/health"
+    }
+  ]
+}

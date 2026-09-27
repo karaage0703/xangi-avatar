@@ -89,7 +89,7 @@ export function createAvatarProxy({
   xangiUrl = process.env.XANGI_URL,
   token = process.env.XANGI_TOKEN || '',
   fetchImpl = globalThis.fetch,
-  captureDir = DEFAULT_CAPTURE_DIR,
+  captureDir = process.env.AVATAR_CAPTURE_DIR || DEFAULT_CAPTURE_DIR,
   notionLog = createNotionConversationLog({ fetchImpl }),
   characterSettings = createCharacterSettingsStore(),
 } = {}) {
