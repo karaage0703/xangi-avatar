@@ -1,6 +1,6 @@
 {
   "name": "xangi-avatar",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Browser-based realtime voice avatar for xangi",
   "type": "module",
   "private": true,
@@ -15,7 +15,8 @@
     "start": "node --env-file-if-exists=.env server/index.mjs",
     "setup:voice": "bash scripts/setup-voice.sh",
     "setup:workspaces": "node scripts/register-sample-workspaces.mjs",
-    "test:model": "node scripts/test-model-execution.mjs && node scripts/test-proxy.mjs && node scripts/test-web-app.mjs"
+    "test:model": "node scripts/test-model-execution.mjs && node scripts/test-proxy.mjs && node scripts/test-web-app.mjs",
+    "test:extension": "node scripts/test-extension.mjs"
   },
   "license": "MIT",
   "dependencies": {},

@@ -30,3 +30,7 @@ Voice language affects speech recognition and speech synthesis only.
 
 
 Execution model display reads modelExecution from session status. Refresh on response completion and session restore; discard delayed responses from previous sessions. Configuration and Auto selection are never treated as provider-confirmed internal models.
+
+## Managed Extension
+
+`server/extension.mjs` owns the dedicated Avatar HTTP child process and exposes an authenticated loopback management endpoint for health and the launcher page. SSE, audio and screen sharing use the dedicated page, rather than the host extension UI proxy. The dedicated listener defaults to loopback. Parent shutdown terminates Avatar and its voice worker. Settings, Notion destination and captures live in a persistent directory outside the checkout.

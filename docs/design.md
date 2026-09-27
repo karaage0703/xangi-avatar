@@ -57,3 +57,7 @@ thinking中は吹き出し内の三点をCSSだけで動かし、最初の応答
 
 
 実行モデル表示はsession statusのmodelExecutionを参照する。応答完了・会話復帰時に更新し、会話切替前の遅延レスポンスは破棄する。設定モデルをprovider確認済みモデルとして扱わず、Autoの非公開内部モデルも推定しない。
+
+## Managed Extension
+
+`server/extension.mjs`がAvatar専用HTTPサーバーを子プロセスとして管理し、認証付きのlocalhost管理口からhealthと画面リンクを返します。本体UIの中継は継続通信・音声用途に使わず、専用画面でSSE・音声・画面共有を処理します。既定の専用画面はloopback限定です。親終了時はAvatarと音声workerを終了します。設定・Notion保存先・capturesはcheckout外の専用データへ保存します。
