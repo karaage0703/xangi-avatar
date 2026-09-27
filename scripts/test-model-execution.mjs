@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import { formatModelExecution } from '../src/lib/model-execution.js';
+assert.match(formatModelExecution(), /まだ記録がありません/);
+const execution = { backend: 'local-llm', configuredModel: 'wrong-config', effectiveModel: 'qwen3.8-27b', observedModels: ['qwen3.8-27b'], source: 'provider', status: 'completed' };
+assert.equal(formatModelExecution(execution), '直近の応答：local-llm / qwen3.8-27b');
+assert.match(formatModelExecution({ backend: 'codex', configuredModel: 'configured', observedModels: [], source: 'config' }), /設定値・実行未確認/);
+assert.match(formatModelExecution({ backend: 'cursor', modelSelection: 'Auto', observedModels: [] }), /Auto（内部モデル不明）/);
+assert.match(formatModelExecution({ ...execution, observedModels: ['first', 'qwen3.8-27b'] }), /同じ応答で使用：first/);
+assert.match(formatModelExecution({ ...execution, status: 'failed' }), /失敗した応答/);
+console.log('model execution display tests passed');

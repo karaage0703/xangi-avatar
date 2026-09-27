@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict';
+import { createPresetWorkspaceLoader } from '../server/preset-workspaces.mjs';
+let entries = [{ id: 'existing-english', name: 'english', path: '/user/english' }];
+const posts = [];
+let fail = true;
+const load = createPresetWorkspaceLoader(async (path, init = {}) => {
+  if (!init.method) return { workspaces: entries };
+  if (fail) throw new Error('registration unavailable');
+  const input = JSON.parse(init.body);
+  posts.push(input);
+  const workspace = { ...input, id: 'new-game' };
+  entries.push(workspace);
+  return { workspace };
+});
+await assert.rejects(load(), /registration unavailable/);
+fail = false;
+const [first, second] = await Promise.all([load(), load()]);
+assert.deepEqual(first, second);
+assert.equal(posts.length, 1);
+assert.equal(posts[0].name, 'game');
+assert.equal(first.workspaces[0].path, '/user/english');
+await load();
+assert.equal(posts.length, 1);
+console.log('preset workspace reuse, concurrency and retry tests passed');
