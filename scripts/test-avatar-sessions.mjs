@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {clearCharacterConversation,loadCharacterSession,saveCharacterSession} from '../src/lib/avatar-sessions.js';
+const values = new Map([['xangi-avatar:session', 'old'], ['xangi-avatar:selected-agent-session:a', 'overridden-old']]);
+const storage = {getItem: k => values.get(k), setItem: (k,v) => values.set(k,v), removeItem: k => values.delete(k)};
+assert.equal(loadCharacterSession(storage,'a'), '');
+saveCharacterSession(storage,'a','new');
+saveCharacterSession(storage,'b','other');
+clearCharacterConversation(storage,'a');
+assert.equal(loadCharacterSession(storage,'a'), '');
+assert.equal(loadCharacterSession(storage,'b'), 'other');
+console.log('avatar session storage tests passed');
