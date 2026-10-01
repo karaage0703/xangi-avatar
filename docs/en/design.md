@@ -34,3 +34,11 @@ Execution model display reads modelExecution from session status. Refresh on res
 ## Managed Extension
 
 `server/extension.mjs` owns the dedicated Avatar HTTP child process and exposes an authenticated loopback management endpoint for health and the launcher page. SSE, audio and screen sharing use the dedicated page, rather than the host extension UI proxy. The dedicated listener defaults to loopback. Parent shutdown terminates Avatar and its voice worker. Settings, Notion destination and captures live in a persistent directory outside the checkout.
+
+## Incremental speech
+
+Each response owns an ordered speech queue. Cumulative `message.delta` text is split at punctuation and newlines; `turn.complete` flushes the remaining text without repeating committed chunks. Server synthesis runs sequentially while playback of the previous chunk continues. Piper, VOICEVOX and browser speech share the queue. Complete-only backends are split when their response arrives; this does not reduce model time to first text.
+
+The microphone stays paused between chunks until both generation and playback finish. Stop, session changes and errors discard queued audio, abort synthesis requests and stop current playback. Reply suggestion tags, including partial streamed tags, are withheld. If a backend rewrites committed text, intermediate revisions are withheld and the final replacement is spoken once, preserving final answers that differ from tool commentary. Some repetition is possible because prior speech cannot be retracted.
+
+Whitespace-only completion changes are matched against committed speech. A final answer already emitted as the suffix of streamed commentary is not repeated.

@@ -59,3 +59,7 @@ Voice language affects speech recognition and speech synthesis only.
 
 
 The header shows the backend and model recorded for the latest response by the host, not the assistant’s self-report. Configuration-only values are marked unverified; missing records remain unknown. Starting a new conversation or switching characters resets the display.
+
+## Incremental speech
+
+Replies start speaking at punctuation or newlines before the full response is complete. The next part is synthesized while the previous audio plays. This works with Piper, VOICEVOX and browser speech without extra settings. Backends that only return complete text start the pipeline after that text arrives. Continuous conversation resumes microphone input after the last audio ends. Press Escape to stop playing and queued speech.

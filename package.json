@@ -1,22 +1,23 @@
 {
   "name": "xangi-avatar",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Browser-based realtime voice avatar for xangi",
   "type": "module",
   "private": true,
   "scripts": {
     "dev": "vite",
-    "test": "node scripts/test-model-execution.mjs && node scripts/test-character-image.mjs && node scripts/test-characters.mjs && node scripts/test-preset-workspaces.mjs && node scripts/test-character-settings.mjs && node scripts/test-avatar-sessions.mjs && node scripts/test-audio-input.mjs && node scripts/test-transcript-quality.mjs && node scripts/test-bubble-pages.mjs && node scripts/test-server-audio-playback.mjs && node scripts/test-web-app.mjs && node scripts/test-proxy.mjs && node scripts/test-notion.mjs && node scripts/test-hands-free.mjs && node scripts/test-screen-conversation.mjs",
+    "test": "node scripts/test-model-execution.mjs && node scripts/test-character-image.mjs && node scripts/test-characters.mjs && node scripts/test-preset-workspaces.mjs && node scripts/test-character-settings.mjs && node scripts/test-avatar-sessions.mjs && node scripts/test-audio-input.mjs && node scripts/test-transcript-quality.mjs && node scripts/test-bubble-pages.mjs && node scripts/test-server-audio-playback.mjs && node scripts/test-web-app.mjs && node scripts/test-proxy.mjs && node scripts/test-notion.mjs && node scripts/test-hands-free.mjs && node scripts/test-screen-conversation.mjs && npm run test:streaming",
     "test:characters": "node scripts/test-character-image.mjs && node scripts/test-characters.mjs && node scripts/test-preset-workspaces.mjs && node scripts/test-character-settings.mjs && node scripts/test-web-app.mjs",
     "test:screen": "node scripts/test-screen-conversation.mjs && node scripts/test-proxy.mjs && node scripts/test-web-app.mjs",
-    "test:voice": "node scripts/test-audio-input.mjs && node scripts/test-transcript-quality.mjs && node scripts/test-bubble-pages.mjs && node scripts/test-server-audio-playback.mjs && node scripts/test-hands-free.mjs && node scripts/test-web-app.mjs",
+    "test:voice": "node scripts/test-audio-input.mjs && node scripts/test-transcript-quality.mjs && node scripts/test-bubble-pages.mjs && node scripts/test-server-audio-playback.mjs && node scripts/test-hands-free.mjs && node scripts/test-web-app.mjs && npm run test:streaming",
     "build": "vite build",
     "preview": "vite preview",
     "start": "node --env-file-if-exists=.env server/index.mjs",
     "setup:voice": "bash scripts/setup-voice.sh",
     "setup:workspaces": "node scripts/register-sample-workspaces.mjs",
     "test:model": "node scripts/test-model-execution.mjs && node scripts/test-proxy.mjs && node scripts/test-web-app.mjs",
-    "test:extension": "node scripts/test-extension.mjs"
+    "test:extension": "node scripts/test-extension.mjs",
+    "test:streaming": "node scripts/test-streaming-speech.mjs"
   },
   "license": "MIT",
   "dependencies": {},
