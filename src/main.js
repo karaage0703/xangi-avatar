@@ -7,6 +7,7 @@ import { clearCharacterConversation, loadCharacterSession, saveCharacterSession 
 import { listAudioInputs, openAudioInput } from './lib/audio-input.js';
 import { splitBubblePages } from './lib/bubble-pages.js';
 import { assessTranscript } from './lib/transcript-quality.js';
+import { StreamingSpeech } from './lib/streaming-speech.js';
 import { ServerAudioPlayback } from './lib/server-audio-playback.js';
 import bundledAvatarClosed from './assets/avatar-closed.png';
 import bundledAvatarOpen from './assets/avatar-open.png';
@@ -79,7 +80,9 @@ let recognition = null;
 let recorder = null;
 let recorderStream = null;
 let serverAudio = null;
-let speechVersion = 0;
+let speechQueue = null;
+let releasePlayback = null;
+let serverAudioUrl = null;
 let audioSource = null;
 const serverAudioPlayback = new ServerAudioPlayback();
 let speaking = false;
@@ -479,8 +482,12 @@ function speechErrorMessage(code) {
 }
 
 function stopSpeaking() {
-  ++speechVersion;
-  if (audioSource) { audioSource.onended = null; audioSource.stop(); audioSource = null; }
+  speechQueue?.cancel();
+  speechQueue = null;
+  releasePlayback?.();
+  releasePlayback = null;
+  if (serverAudioUrl) { URL.revokeObjectURL(serverAudioUrl); serverAudioUrl = null; }
+  if (audioSource) { audioSource.onended = null; audioSource.stop(); audioSource.disconnect(); audioSource = null; }
   serverAudioPlayback.stop();
   window.speechSynthesis?.cancel?.();
   if (serverAudio) { serverAudio.pause(); serverAudio.src = ''; serverAudio = null; }
@@ -496,75 +503,100 @@ function preferredVoice(language) {
   return voices.find((voice) => voice.lang.toLowerCase().startsWith(`${baseLanguage}-`));
 }
 
-async function speakServer(text, provider, isTest) {
-  const version = speechVersion;
-  const response = await fetch('/api/avatar/tts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text, provider, language: activeCharacter().language }) });
+async function prepareSpeech(text, provider, language, signal) {
+  if (provider === 'browser') return null;
+  const response = await fetch('/api/avatar/tts', { method: 'POST', signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text, provider, language }) });
   if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.error || `音声合成 HTTP ${response.status}`); }
-  const blob = await response.blob();
-  if (version !== speechVersion) return;
-  if (handsFree.active && handsFree.context) {
-    const context = handsFree.context;
-    const buffer = await context.decodeAudioData(await blob.arrayBuffer());
-    if (version !== speechVersion || !handsFree.active) return;
-    const source = context.createBufferSource();
-    source.buffer = buffer; source.connect(context.destination); audioSource = source;
-    source.onended = () => { source.disconnect(); audioSource = null; speaking = false; setState('idle'); handsFree.resume(); };
-    source.start(); speaking = true; setState('speaking');
-    return;
-  }
-  if (serverAudioPlayback.context) {
-    await serverAudioPlayback.play(blob, {
-      canStart: () => version === speechVersion,
-      onStart: () => { speaking = true; setState('speaking'); if (isTest) elements.voiceLabel.textContent = '再生中…'; },
-      onEnd: () => { speaking = false; setState('idle'); handsFree.resume(); if (isTest) elements.voiceLabel.textContent = '声を試す'; },
-    });
-    return;
-  }
-  const url = URL.createObjectURL(blob);
-  serverAudio = new Audio(url);
-  serverAudio.onplay = () => { speaking = true; setState('speaking'); if (isTest) elements.voiceLabel.textContent = '再生中…'; };
-  serverAudio.onended = () => { URL.revokeObjectURL(url); serverAudio = null; speaking = false; setState('idle'); handsFree.resume(); if (isTest) elements.voiceLabel.textContent = '声を試す'; };
-  serverAudio.onerror = () => { URL.revokeObjectURL(url); serverAudio = null; speaking = false; if (isTest) elements.voiceLabel.textContent = '声を試す'; showError('音声を再生できませんでした。'); };
-  await serverAudio.play();
+  return response.blob();
+}
+
+function playSpeech(blob, text, provider, language, signal, isTest) {
+  return new Promise((resolve, reject) => {
+    const finish = () => {
+      if (releasePlayback === finish) releasePlayback = null;
+      if (!signal.aborted) { speaking = false; setState('thinking', '返答を読み上げ中…'); }
+      resolve();
+    };
+    releasePlayback = finish;
+    const start = () => {
+      if (signal.aborted) return;
+      speaking = true;
+      setState('speaking');
+      if (isTest) elements.voiceLabel.textContent = '再生中…';
+    };
+    const run = async () => {
+      if (signal.aborted) return finish();
+      if (provider === 'browser') {
+        if (!('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) {
+          setState('idle');
+          throw new Error('このブラウザは音声読み上げに対応していません。');
+        }
+        window.speechSynthesis.resume();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = language;
+        utterance.voice = preferredVoice(language) || null;
+        utterance.onstart = start;
+        utterance.onend = finish;
+        utterance.onerror = (event) => signal.aborted ? finish() : reject(new Error(event.error || '音声を再生できませんでした。'));
+        window.speechSynthesis.speak(utterance);
+      } else if (handsFree.active && handsFree.context) {
+        const context = handsFree.context;
+        const buffer = await context.decodeAudioData(await blob.arrayBuffer());
+        if (signal.aborted) return finish();
+        const source = context.createBufferSource();
+        source.buffer = buffer;
+        source.connect(context.destination);
+        audioSource = source;
+        source.onended = () => { source.disconnect(); audioSource = null; finish(); };
+        source.start();
+        start();
+      } else if (serverAudioPlayback.context) {
+        const started = await serverAudioPlayback.play(blob, { canStart: () => !signal.aborted, onStart: start, onEnd: finish });
+        if (!started) finish();
+      } else {
+        const url = URL.createObjectURL(blob);
+        serverAudioUrl = url;
+        const audio = new Audio(url);
+        serverAudio = audio;
+        const cleanup = () => {
+          URL.revokeObjectURL(url);
+          if (serverAudio === audio) { serverAudio = null; serverAudioUrl = null; }
+        };
+        audio.onplay = start;
+        audio.onended = () => { cleanup(); finish(); };
+        audio.onerror = () => { cleanup(); reject(new Error('音声を再生できませんでした。')); };
+        await audio.play();
+      }
+    };
+    run().catch(reject);
+  });
+}
+
+function beginSpeech({ isTest = false } = {}) {
+  stopSpeaking();
+  handsFree.pause();
+  const { tts: provider, language } = activeCharacter();
+  speechQueue = new StreamingSpeech({
+    prepare: (text, signal) => prepareSpeech(text, provider, language, signal),
+    play: (blob, text, signal) => playSpeech(blob, text, provider, language, signal, isTest),
+    onDone: () => {
+      speaking = false;
+      setState('idle');
+      handsFree.resume();
+      if (isTest) elements.voiceLabel.textContent = '声を試す';
+    },
+    onError: (error) => {
+      stopSpeaking();
+      if (isTest) elements.voiceLabel.textContent = '声を試す';
+      showError(`読み上げエラー: ${error.message}`);
+    },
+  });
 }
 
 function speak(text, { isTest = false } = {}) {
-  handsFree.pause();
-  const cleaned = String(text || '').replace(/<xangi_reply_suggestions>[\s\S]*$/u, '').trim();
-  if (!cleaned) { setState('idle'); handsFree.resume(); return; }
-  const provider = activeCharacter().tts;
-  if (cleaned && provider !== 'browser') {
-    showError(''); stopSpeaking();
-    speakServer(cleaned, provider, isTest).catch((error) => { if (isTest) elements.voiceLabel.textContent = '声を試す'; showError(`読み上げエラー: ${error.message}`); });
-    return;
-  }
-  if (!cleaned || !('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) {
-    showError('このブラウザは音声読み上げに対応していません。');
-    return;
-  }
   showError('');
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.resume();
-  const utterance = new SpeechSynthesisUtterance(cleaned);
-  utterance.lang = activeCharacter().language;
-  utterance.voice = preferredVoice(utterance.lang) || null;
-  utterance.onstart = () => {
-    speaking = true;
-    setState('speaking');
-    if (isTest) elements.voiceLabel.textContent = '再生中…';
-  };
-  utterance.onend = () => {
-    speaking = false;
-    setState('idle');
-    handsFree.resume();
-    if (isTest) elements.voiceLabel.textContent = '声を試す';
-  };
-  utterance.onerror = (event) => {
-    speaking = false;
-    if (isTest) elements.voiceLabel.textContent = '声を試す';
-    if (!['canceled', 'interrupted'].includes(event.error)) showError(`読み上げエラー: ${event.error || '再生できませんでした'}`);
-  };
-  window.speechSynthesis.speak(utterance);
+  beginSpeech({ isTest });
+  speechQueue.update(text, true);
 }
 
 function testVoice() {
@@ -583,6 +615,9 @@ async function sendMessage(rawText, { displayText = '', turnKind = 'message', sc
   setState('thinking');
   showBubble(displayText || `あなた: ${text}`);
   await ensureAvatarSession(turnKind === 'screen' ? 'screen' : 'conversation');
+  activeTurnId = '';
+  beginSpeech();
+  setState('thinking');
   const response = await fetch('/api/avatar/message', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -661,12 +696,14 @@ function handleEvent(event) {
     activeThreadId = event.thread_id || activeThreadId;
     activeTurnId = event.turn_id || activeTurnId;
     responseText = '';
+    beginSpeech();
     setState('thinking');
   } else if (event.type === 'message.delta') {
     responseText = event.full_text || `${responseText}${event.text || ''}`;
     overlayResponseText = responseText;
     showBubble(responseText);
-    setState('thinking', '返答を受信中…');
+    speechQueue?.update(responseText);
+    if (!speaking) setState('thinking', '返答を受信中…');
   } else if (event.type === 'turn.complete') {
     void refreshModelExecution();
     const visualTurn = visualTurnRecords.get(event.turn_id);
@@ -675,18 +712,20 @@ function handleEvent(event) {
     responseText = event.text || responseText;
     overlayResponseText = responseText;
     showBubble(responseText, { final: true });
-    speak(responseText);
+    speechQueue?.update(responseText, true);
     void saveConversationTurn(visualTurn, responseText).catch((error) => {
       console.warn('conversation log save failed', error);
       elements.screenConversationStatus.textContent = `画面付き会話は継続中・Notionへの記録に失敗: ${error.message}`;
     });
   } else if (event.type === 'turn.aborted') {
+    stopSpeaking();
     void refreshModelExecution();
     visualTurnIds.delete(event.turn_id);
     visualTurnRecords.delete(event.turn_id);
     setState('idle');
     handsFree.resume();
   } else if (event.type === 'agent.error') {
+    stopSpeaking();
     void refreshModelExecution();
     if (event.turn_id) {
       visualTurnIds.delete(event.turn_id);
@@ -1054,7 +1093,7 @@ elements.controls.addEventListener('change', () => {
 });
 window.addEventListener('keydown', (event) => {
   if (event.key.toLowerCase() === 'v' && !['INPUT', 'SELECT'].includes(document.activeElement?.tagName)) startRecognition();
-  if (event.key === 'Escape') { handsFree.stop(); screenConversation.stop(); if (speaking) stopSpeaking(); }
+  if (event.key === 'Escape') { handsFree.stop(); screenConversation.stop(); stopSpeaking(); }
 });
 
 applyViewSettings();
