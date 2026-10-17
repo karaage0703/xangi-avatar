@@ -32,7 +32,7 @@ try {
   const html=await (await fetch(ready.baseUrl+'/',{headers:auth})).text();assert.match(html,/Avatarを開く/);assert.match(html,new RegExp(`localhost:${port}`));assert.ok(!html.includes('fixture-token'));
   const config=await (await fetch(`http://127.0.0.1:${port}/api/avatar/config`)).json();assert.equal(config.agents[0].id,'fixture');
   const page=await (await fetch(`http://127.0.0.1:${port}/`)).text();assert.match(page,/<title>/);
-  const response=await fetch(`http://127.0.0.1:${port}/api/avatar/settings/characters`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(saved)});assert.equal(response.status,200);
+  const response=await fetch(`http://127.0.0.1:${port}/api/avatar/settings/characters`,{method:'PUT',headers:{'content-type':'application/json',origin:`http://127.0.0.1:${port}`},body:JSON.stringify(saved)});assert.equal(response.status,200);
   const bytes=await readFile(join(dir,'character-settings.json'));
   await stop();await assert.rejects(fetch(`http://127.0.0.1:${port}/`));
   await writeFile(join(dir,'config.env'),'AVATAR_PUBLIC_URL=https://avatar.example/\n');

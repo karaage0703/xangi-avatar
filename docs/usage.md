@@ -99,3 +99,24 @@ Avatarは選択した本体のAgent IDだけを参照し、Agentやプロジェ�
 ## 返答の順次読み上げ
 
 返答は全文の完成を待たず、句読点や改行まで届いた部分から読み上げます。前の音声を再生している間に次の部分を合成します。Piper・VOICEVOX・ブラウザ読み上げに対応し、追加設定は不要です。全文だけを返すAIでは、全文受信後から順次音声化します。連続会話のマイクは最後の音声が終わってから再開します。Escapeで待機中・再生中の音声を停止できます。
+
+## ブラウザとAPIのアクセス保護
+
+同じPCでは `http://localhost:4173/` を開くだけで利用できます。ログインやキー入力は不要です。通常起動と開発サーバーは既定でloopbackだけに待ち受けます。LAN/Tailnet IPへの直接接続は拒否します。
+
+別端末では、同じホストの **Tailscale Serve（HTTPS）** をloopbackのAvatarへ転送し、次を一度設定します。managed extensionでは永続データディレクトリの `config.env`、通常起動では `.env` に設定します。
+
+```dotenv
+AVATAR_PUBLIC_URL=https://your-device.your-tailnet.ts.net:4173/
+AVATAR_TRUSTED_TAILSCALE_LOGIN=you@example.com
+```
+
+公開URLはパス・クエリなしのHTTPS URLにし、Serveが元のHostを保持する構成にします。許可したTailscaleアカウントの端末は入力なしで利用でき、他のアカウント・本人情報のないアクセスは拒否します。設定が揃っていない既存の別端末アクセスは、更新後に拒否されるため配備前に設定してください。Funnelは対象外です。認証情報をURLに付ける必要はありません。
+
+ローカル接続でもHost、Origin、Fetch Metadataを確認し、外部サイトからのAPIアクセスを拒否します。書き込みAPIをcurl等で使う場合は、接続先と同じOriginヘッダーが必要です。API全体（音声・画像・設定・イベント配信を含む）と画面に同じアクセス制御が適用されます。OBSの表示もlocalhostまたは許可済みTailnet端末で利用できます。
+
+信頼境界は同一ホストのプロセスとTailscale Serveです。同一ホストの悪意あるプロセスを隔離する機能ではありません。任意のプロキシにHostをlocalhostへ書き換えて転送させないでください。Serve以外のプロキシや別ユーザーとのホスト共用には別途隔離が必要です。`XANGI_TOKEN` は本体への接続用で、利用者認証キーではありません。
+
+開発起動は `npm run dev`（localhost:1420）、previewは `npm run preview`。どちらも同じ保護を使います。Tailnet設定を開発起動で使う場合は環境変数として渡してください。
+
+参照: https://tailscale.com/docs/features/tailscale-serve#identity-headers

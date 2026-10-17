@@ -12,7 +12,7 @@ Persistent data uses `AVATAR_DATA_DIR`, otherwise `DATA_DIR/extensions/data/xang
 
 The default listener is `127.0.0.1:4173`; the launcher opens `http://localhost:4173/` on the same computer. Port conflicts fail startup. Use `AVATAR_PORT` for side-by-side testing.
 
-For another device, configure an authenticated HTTPS reverse proxy and set a verified `AVATAR_PUBLIC_URL`. Microphone and screen sharing require HTTPS. Only set `AVATAR_HOST=0.0.0.0` when wider listening is needed. The dedicated Avatar server has no user authentication of its own; do not expose it directly to the Internet.
+For remote devices configure Tailscale Serve identity authentication; see [access protection](docs/en/usage.md#browser-and-api-access-protection). Localhost needs no extra login.
 
 Speech recognition and local Piper need separate setup. Set `AVATAR_VOICE_ROOT` for existing voice assets or `AVATAR_VOICE_URL` for an external voice server. When running `npm run setup:voice -- /path/to/xangi-stackchan`, set `AVATAR_VOICE_ROOT` to the persistent voice directory. Browser speech does not need a voice server.
 

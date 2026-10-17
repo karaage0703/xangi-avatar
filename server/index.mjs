@@ -3,12 +3,14 @@ import { createServer } from 'node:http';
 import { extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createAvatarProxy } from './proxy.mjs';
+import { createAvatarAccess } from './access.mjs';
 import { closeVoiceWorker } from './voice.mjs';
 
 const root = resolve(fileURLToPath(new URL('../dist', import.meta.url)));
 const port = Number.parseInt(process.env.PORT || '4173', 10);
-const host = process.env.HOST || '0.0.0.0';
+const host = process.env.HOST || '127.0.0.1';
 const proxy = createAvatarProxy();
+const allow = createAvatarAccess();
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.webp': 'image/webp' };
 
 if (!existsSync(join(root, 'index.html'))) {
@@ -17,6 +19,7 @@ if (!existsSync(join(root, 'index.html'))) {
 }
 
 const server = createServer((request, response) => {
+  if (!allow(request, response)) return;
   proxy(request, response, () => {
     const pathname = decodeURIComponent(new URL(request.url || '/', 'http://avatar.local').pathname);
     const relative = normalize(pathname).replace(/^(\.\.(\/|\\|$))+/, '').replace(/^[/\\]+/, '');

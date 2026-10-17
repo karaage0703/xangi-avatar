@@ -57,3 +57,5 @@ MIT
 青い標準画像は `src/assets/avatar-{closed,open}.png` に配置します。assistant専用workspaceは同梱しません。
 
 拡張追加にはこのリポジトリのURLを指定してください。[拡張セットアップ](XANGI_SETUP.md)に、専用画面の起動・別端末からのHTTPS接続・既存ランチャーからの移行手順があります。
+
+ローカルは追加ログイン不要です。別端末から使う場合は[Tailscale本人認証の設定](docs/usage.md#ブラウザとapiのアクセス保護)を行ってください。

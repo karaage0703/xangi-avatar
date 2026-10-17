@@ -12,7 +12,7 @@ xangiの拡張追加に `https://github.com/karaage0703/xangi-avatar` を指定�
 
 既定は `127.0.0.1:4173`、リンクは同じ端末の `http://localhost:4173/` です。ポート競合時は正常起動と報告せず停止します。既存Avatarと並行する検証では `AVATAR_PORT` を変えてください。
 
-別端末から利用する場合は、認証付きHTTPSリバースプロキシ等の接続経路を別途用意し、到達確認済みのURLを `AVATAR_PUBLIC_URL` に設定します。マイク・画面共有にはHTTPSが必要です。必要な場合だけ `AVATAR_HOST=0.0.0.0` で直接待受を広げます。Avatarの専用HTTP画面には独自の利用者認証がないため、インターネットへ直接公開しません。
+別端末での利用にはTailscale Serveの本人認証を設定します。[アクセス保護の手順](docs/usage.md#ブラウザとapiのアクセス保護)を参照してください。localhostは追加入力なしで利用できます。
 
 音声認識・Piperのローカル環境は別途準備が必要です。既存音声環境を使う場合は `AVATAR_VOICE_ROOT`、外部音声サーバーは `AVATAR_VOICE_URL` を設定します。`npm run setup:voice -- /path/to/xangi-stackchan` も専用データ内のvoiceディレクトリを `AVATAR_VOICE_ROOT` に指定して実行できます。ブラウザ読み上げは音声サーバー不要です。
 

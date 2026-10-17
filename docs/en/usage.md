@@ -63,3 +63,24 @@ The header shows the backend and model recorded for the latest response by the h
 ## Incremental speech
 
 Replies start speaking at punctuation or newlines before the full response is complete. The next part is synthesized while the previous audio plays. This works with Piper, VOICEVOX and browser speech without extra settings. Backends that only return complete text start the pipeline after that text arrives. Continuous conversation resumes microphone input after the last audio ends. Press Escape to stop playing and queued speech.
+
+## Browser and API access protection
+
+Open `http://localhost:4173/` on the same computer without a login or key. Production and development servers bind to loopback by default. Direct LAN/Tailnet IP connections are denied.
+
+For another device, proxy **Tailscale Serve HTTPS** on the same host to the loopback Avatar server and configure once (`config.env` in the managed data directory, or `.env` for standalone):
+
+```dotenv
+AVATAR_PUBLIC_URL=https://your-device.your-tailnet.ts.net:4173/
+AVATAR_TRUSTED_TAILSCALE_LOGIN=you@example.com
+```
+
+Use an HTTPS origin without a path or query and preserve the original Host through Serve. Devices belonging to the allowed Tailscale account need no extra login. Other accounts and missing identities are denied. Configure both values before upgrading existing remote installations; otherwise remote access stops working. Funnel is not supported. No secrets belong in URLs.
+
+Host, Origin and Fetch Metadata checks block cross-site API requests. Command-line writes must include an Origin header matching the destination. All APIs, including audio, images, settings and event streams, and the UI share access control. OBS views work on localhost or an authorized Tailnet device.
+
+Local processes and the local Tailscale Serve daemon are trusted. This does not isolate malicious processes on the same host. Never configure another proxy to rewrite the Host to localhost. Other proxies or shared multi-user hosts require separate isolation. `XANGI_TOKEN` authenticates outbound requests to xangi, not browser users.
+
+`npm run dev` uses localhost:1420; `npm run preview` also applies the access guard. Export the Tailnet environment variables when using development mode.
+
+Reference: https://tailscale.com/docs/features/tailscale-serve#identity-headers
