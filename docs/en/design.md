@@ -42,3 +42,5 @@ Each response owns an ordered speech queue. Cumulative `message.delta` text is s
 The microphone stays paused between chunks until both generation and playback finish. Stop, session changes and errors discard queued audio, abort synthesis requests and stop current playback. Reply suggestion tags, including partial streamed tags, are withheld. If a backend rewrites committed text, intermediate revisions are withheld and the final replacement is spoken once, preserving final answers that differ from tool commentary. Some repetition is possible because prior speech cannot be retracted.
 
 Whitespace-only completion changes are matched against committed speech. A final answer already emitted as the suffix of streamed commentary is not repeated.
+
+Browser entry points (production and Vite dev/preview) protect all routes with server/access.mjs. Direct loopback requests require a local Host and no proxy headers. Serve requests require the configured public Host and allowed login. Writes require a matching Origin; cross-site/same-site API requests are denied. This is separate from the internal gateway bearer authentication.

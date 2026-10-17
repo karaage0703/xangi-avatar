@@ -50,3 +50,5 @@ Closed/open PNGs live in `workspaces/<english|game>/assets/xangi-avatar/<english
 Blue default images live in `src/assets/avatar-{closed,open}.png`. No assistant workspace is bundled.
 
 Use this repository URL in the xangi extension installer. See [extension setup](XANGI_SETUP.en.md) for launching the dedicated page, HTTPS access from another device and migration from a temporary launcher.
+
+Localhost requires no extra login. For other devices, configure [Tailscale identity authentication](docs/en/usage.md#browser-and-api-access-protection).
