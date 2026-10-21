@@ -28,6 +28,8 @@ npm run build
 npm start
 ```
 
+拡張として使う場合はxangi本体と同じポートで開きます。以下は単独起動の設定です。
+
 既定のURLは `http://localhost:4173`、接続先xangiは `http://127.0.0.1:18888` です。マイクと画面共有にはHTTPSまたはlocalhostが必要です。
 会話と相対パス画像は、選択した本体Agentのワークスペースを使います。Avatarにワークスペース選択はなく、プリセットでも自動登録・自動切替しません。同梱のenglish/gameを使う場合だけ`npm run setup:workspaces`で任意登録し、本体のAgentへ設定してください。
 
@@ -46,16 +48,10 @@ npm run build
 npm audit
 ```
 
-## License
-
-MIT
-
-### 同梱アバター
-
-各プリセットの口閉じ・口開きPNGは `workspaces/<english|game>/assets/xangi-avatar/<english|game>/` にあります。登録前でも同梱画像を表示できます。画像欄が空なら青の標準画像を使います。別キャラクターの画像はリポジトリへ追加せず、利用者のワークスペースへ配置してください。同梱ロボット画像は作者自身の作品で、コードと同じ [MITライセンス](LICENSE) で配布します。利用者が追加する画像には、それぞれの権利者が定めた利用条件が適用されます。
-
-青い標準画像は `src/assets/avatar-{closed,open}.png` に配置します。assistant専用workspaceは同梱しません。
-
 拡張追加にはこのリポジトリのURLを指定してください。[拡張セットアップ](XANGI_SETUP.md)に、専用画面の起動・別端末からのHTTPS接続・既存ランチャーからの移行手順があります。
 
 ローカルは追加ログイン不要です。別端末から使う場合は[Tailscale本人認証の設定](docs/usage.md#ブラウザとapiのアクセス保護)を行ってください。
+
+## License
+
+MIT

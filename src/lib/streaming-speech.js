@@ -45,8 +45,10 @@ export class StreamingSpeech {
       let rest = text.slice(this.accepted.length);
       while (rest) {
         const boundary = /[。！？!?\n]|[.](?=\s)|[、,](?=\s|[^\x00-\x7f])/u.exec(rest);
-        if (!boundary && !final) break;
-        const end = boundary ? boundary.index + boundary[0].length : rest.length;
+        // A long sentence must not wait for the final punctuation or turn end.
+        const limit = Array.from(rest).slice(0, 80).join('').length;
+        if (!boundary && !final && Array.from(rest).length < 80) break;
+        const end = Math.min(boundary ? boundary.index + boundary[0].length : rest.length, limit);
         const chunk = rest.slice(0, end);
         this.accepted += chunk;
         rest = rest.slice(end);

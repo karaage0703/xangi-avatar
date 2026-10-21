@@ -85,3 +85,16 @@ for (const [delta, final, expected] of [
   assert.deepEqual(spoken, expected, 'whitespace-only changes must not repeat speech');
 }
 console.log('completion whitespace and already-streamed final answer regressions passed');
+
+const longPrepared = [], longPlayed = [];
+const longQueue = new StreamingSpeech({prepare: async text => { longPrepared.push(text); return text; }, play: async text => longPlayed.push(text)});
+const longText = 'あ'.repeat(79) + '😀' + 'い'.repeat(40);
+longQueue.update(longText);
+await longQueue.preparing;
+assert.equal(longPrepared.length, 1, 'unpunctuated response starts synthesis before done');
+assert.equal(Array.from(longPrepared[0]).length, 80);
+assert.ok(longPrepared[0].endsWith('😀'), 'chunk boundary preserves surrogate pairs');
+longQueue.update(longText, true);
+await longQueue.playing;
+assert.equal(longPlayed.join(''), longText);
+console.log('long streamed response: 80-character early synthesis, Unicode and no duplicate passed');

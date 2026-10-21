@@ -2,6 +2,8 @@
 
 # xangi-avatar 設計
 
+拡張モードでは、管理プロセス自身がloopbackの自動割当ポートで画面とAPIを提供する。本体が拡張専用Bearerを付与して中継し、ブラウザは本体と同じoriginを使う。固定ポートの子サーバーや別URLへのランチャーは不要。SSE・画像・音声も同じ経路を通す。単独起動のアクセス制御は維持する。
+
 ## 方針
 
 xangiをAgent、Session、backend、model、workspace、message、eventの基盤とし、マイク、STT/TTS、アバター、OBS同期をxangi-avatarへ閉じ込めます。公開xangi-petsロボットを青・緑・オレンジのプリセットとして同梱し、未設定時は青を表示します。
@@ -71,3 +73,10 @@ thinking中は吹き出し内の三点をCSSだけで動かし、最初の応答
 完了時の空白・改行整形は同じ本文として照合します。途中で読み上げ済みの最終回答だけが完了イベントに入る場合も再読しません。
 
 ブラウザ入口（通常起動・Vite dev/preview）は server/access.mjs で全ルートを保護する。loopback直接接続はHostと転送ヘッダーを検査し、Serve経由は公開Hostと許可loginを照合する。更新系は同一Origin必須、APIのcross-site/same-siteアクセスは拒否する。内部gatewayのBearer認証とは独立。
+
+
+## ブラウザ内の音声試聴
+
+設定画面の試聴は独立したAudioContextと取消状態を持ち、保存前の設定をTTS APIへ送る。会話セッションを作らず、設定変更・閉じる・停止で遅延した音声も抑止する。Stackchanへの転送APIは持たない。
+
+画像欄の初期値と空欄は `./assets/xangi-avatar/{closed,open}.png` を使用します。相対パスは同梱画像へ置き換えず、選択したAgentのワークスペースで解決します。

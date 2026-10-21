@@ -1,6 +1,7 @@
-import { createCharacterImageLoader } from './lib/character-image.js';
+import { ManualRecognition } from './lib/manual-recognition.js';
+import { createCharacterImageLoader, resolveWorkspaceImage } from './lib/character-image.js';
 import { formatModelExecution } from './lib/model-execution.js';
-import { CHARACTER_PRESETS, VOICE_PROVIDERS, buildCharacterPrompt, characterById, normalizeCharacter } from './lib/characters.js';
+import { CHARACTER_PRESETS, VOICE_PROVIDERS, buildCharacterPrompt, characterById, normalizeCharacter, characterSetupError, mergeCharacters } from './lib/characters.js';
 import { HandsFree } from './lib/hands-free.js';
 import { ScreenConversation, buildScreenConversationPrompt } from './lib/screen-conversation.js';
 import { clearCharacterConversation, loadCharacterSession, saveCharacterSession } from './lib/avatar-sessions.js';
@@ -11,18 +12,6 @@ import { StreamingSpeech } from './lib/streaming-speech.js';
 import { ServerAudioPlayback } from './lib/server-audio-playback.js';
 import bundledAvatarClosed from './assets/avatar-closed.png';
 import bundledAvatarOpen from './assets/avatar-open.png';
-import englishClosed from '../workspaces/english/assets/xangi-avatar/english/closed.png';
-import englishOpen from '../workspaces/english/assets/xangi-avatar/english/open.png';
-import gameClosed from '../workspaces/game/assets/xangi-avatar/game/closed.png';
-import gameOpen from '../workspaces/game/assets/xangi-avatar/game/open.png';
-const presetImages = {
-  'assets/xangi-avatar/assistant/closed.png': bundledAvatarClosed,
-  'assets/xangi-avatar/assistant/open.png': bundledAvatarOpen,
-  'assets/xangi-avatar/english/closed.png': englishClosed,
-  'assets/xangi-avatar/english/open.png': englishOpen,
-  'assets/xangi-avatar/game/closed.png': gameClosed,
-  'assets/xangi-avatar/game/open.png': gameOpen,
-};
 
 const $ = (id) => document.getElementById(id);
 const elements = {
@@ -51,10 +40,14 @@ const imageStatusText = {
 const editorImageChecks = ['Closed', 'Open'].map((kind) => {
   const status = $(`characterImage${kind}Status`);
   const input = elements[`characterImage${kind}`];
+  const preview = $(`characterImage${kind}Preview`);
   const load = createCharacterImageLoader({
-    image: new Image(), fallback: kind === 'Closed' ? bundledAvatarClosed : bundledAvatarOpen,
+    image: preview, fallback: '', allowFallback: false,
     onStatus(state) {
-      status.textContent = imageStatusText[state];
+      preview.hidden = state !== 'ready';
+      status.textContent = state === 'error'
+        ? (elements.characterAgent.value ? '画像を読み込めません。ファイルの存在・画像形式・パスを確認してください。' : '画像を確認するには、使うAgentを選択してください。')
+        : imageStatusText[state];
       status.dataset.state = state;
       input.setAttribute('aria-invalid', String(state === 'fallback' || state === 'error'));
     },
@@ -141,7 +134,7 @@ function currentOverlayPayload() {
 }
 
 async function publishOverlayState() {
-  const response = await fetch('/api/avatar/overlay/state', {
+  const response = await fetch('api/avatar/overlay/state', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(currentOverlayPayload()),
@@ -242,7 +235,7 @@ async function requestSelectedMicrophone() {
 }
 
 function connectOverlayState() {
-  const source = new EventSource('/api/avatar/overlay/events');
+  const source = new EventSource('api/avatar/overlay/events');
   source.addEventListener('overlay.state', (event) => {
     try { applyOverlayState(JSON.parse(event.data || '{}')); }
     catch (error) { console.warn('invalid overlay state', error); }
@@ -251,7 +244,7 @@ function connectOverlayState() {
 function publishOverlayIdle() {
   if (overlayView || !navigator.sendBeacon) return;
   const character = activeCharacter();
-  navigator.sendBeacon('/api/avatar/overlay/state', new Blob([JSON.stringify({
+  navigator.sendBeacon('api/avatar/overlay/state', new Blob([JSON.stringify({
     state: 'idle',
     detail: '待機中',
     text: overlayResponseText,
@@ -270,7 +263,7 @@ async function refreshModelExecution({ reset = false } = {}) {
   if (reset || !sessionId) label.textContent = formatModelExecution(null);
   if (!sessionId) return;
   try {
-    const response = await fetch(`/api/avatar/session/status?sessionId=${encodeURIComponent(sessionId)}`);
+    const response = await fetch(`api/avatar/session/status?sessionId=${encodeURIComponent(sessionId)}`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const detail = await response.json();
     if (version === modelRefreshVersion && sessionId === appSessionId) label.textContent = formatModelExecution(detail.modelExecution);
@@ -289,8 +282,9 @@ function useSession(sessionId, { validated = true } = {}) {
 async function createAvatarSession(sessionKind = 'conversation') {
   await xangiOptionsReady;
   const character = activeCharacter();
-  if (!character.agentId) throw new Error('キャラクター設定でプリセットを複製し、本体のAgentを選択してください。');
-  const response = await fetch('/api/avatar/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...character, sessionKind }) });
+  const setupError = characterSetupError(character);
+  if (setupError) throw new Error(setupError);
+  const response = await fetch('api/avatar/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...character, sessionKind }) });
   const session = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(session.error || 'xangi Sessionを作成できませんでした。');
   useSession(session.sessionId);
@@ -298,7 +292,7 @@ async function createAvatarSession(sessionKind = 'conversation') {
 }
 async function ensureAvatarSession(sessionKind = 'conversation') {
   if (appSessionId && !sessionValidated) {
-    const response = await fetch(`/api/avatar/session/status?sessionId=${encodeURIComponent(appSessionId)}`);
+    const response = await fetch(`api/avatar/session/status?sessionId=${encodeURIComponent(appSessionId)}`);
     const status = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(status.error || 'xangi Sessionの状態を確認できませんでした。');
     if (!status.exists || status.lifecycle !== 'open') useSession('');
@@ -309,7 +303,7 @@ async function ensureAvatarSession(sessionKind = 'conversation') {
 }
 async function closeAvatarSession(sessionId) {
   if (!sessionId) return;
-  const response = await fetch('/api/avatar/session/close', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId }) });
+  const response = await fetch('api/avatar/session/close', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId }) });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(result.error || 'xangi Sessionを完了できませんでした。');
 }
@@ -324,7 +318,7 @@ const handsFree = new HandsFree({
   onAudio: async (blob, version, audioMetrics) => {
     const framePromise = screenConversation.active ? screenConversation.capture() : Promise.resolve(null);
     setState('thinking', 'Whisperで文字起こし中…');
-    const response = await fetch(`/api/avatar/stt?language=${encodeURIComponent(activeCharacter().language)}`, { method: 'POST', headers: { 'content-type': blob.type }, body: blob });
+    const response = await fetch(`api/avatar/stt?language=${encodeURIComponent(activeCharacter().language)}`, { method: 'POST', headers: { 'content-type': blob.type }, body: blob });
     const result = await response.json();
     const frame = await framePromise;
     if (!handsFree.active || handsFree.version !== version) return;
@@ -333,7 +327,7 @@ const handsFree = new HandsFree({
     if (!assessment.accepted) {
       elements.handsFreeStatus.textContent = `${assessment.reason} ${activeAudioInputLabel}で聞き直します。`;
       setState('listening', '認識を見送りました。もう一度話してください');
-      handsFree.resume();
+      resumeHandsFreeAfterOutput();
       return;
     }
     elements.handsFreeStatus.textContent = `認識: 「${assessment.text}」／${activeAudioInputLabel}／発話 ${(audioMetrics?.voiceMs || 0) / 1000}秒`;
@@ -415,7 +409,7 @@ function setMicrophoneMuted(muted) {
 }
 
 function refreshCharacters() {
-  elements.mode.replaceChildren(...[...CHARACTER_PRESETS, ...customCharacters].map((character) => Object.assign(document.createElement('option'), { value: character.id, textContent: `${findCharacter(character.id).name}${findCharacter(character.id).role ? `｜${findCharacter(character.id).role}` : ''}` })));
+  elements.mode.replaceChildren(...mergeCharacters(customCharacters).map((character) => Object.assign(document.createElement('option'), { value: character.id, textContent: `${findCharacter(character.id).name}${findCharacter(character.id).role ? `｜${findCharacter(character.id).role}` : ''}` })));
   elements.mode.value = mode;
 }
 function loadVoiceProviders() {
@@ -423,12 +417,7 @@ function loadVoiceProviders() {
   elements.characterTts.replaceChildren(...VOICE_PROVIDERS.tts.map((provider) => Object.assign(document.createElement('option'), { value: provider.id, textContent: provider.label })));
 }
 function resolveCharacterImage(value, fallback, agentId = '') {
-  value = String(value || '').trim();
-  if (!value || value === './assets/avatar-closed.png') return fallback === 'closed' ? bundledAvatarClosed : bundledAvatarOpen;
-  if (value === './assets/avatar-open.png') return bundledAvatarOpen;
-  if (Object.hasOwn(presetImages, value)) return presetImages[value];
-  if (/^(?:https?:|data:|blob:)/iu.test(value) || value.startsWith('/')) return value;
-  return `/api/avatar/workspace-image?${new URLSearchParams({ agentId, path: value })}`;
+  return resolveWorkspaceImage(value, fallback, agentId, { closed: bundledAvatarClosed, open: bundledAvatarOpen });
 }
 function applyCharacterView() {
   void refreshModelExecution({ reset: true });
@@ -438,10 +427,10 @@ function applyCharacterView() {
   elements.imageClosed.alt = `${character.name}のアバター`;
   scheduleOverlayPublish();
 }
-function openCharacterEditor(character = activeCharacter(), editable = !CHARACTER_PRESETS.some(({ id }) => id === character.id)) {
-  editingCharacter = editable ? character : null; elements.characterKind.textContent = editable ? 'カスタムキャラクター' : 'プリセット（複製して編集できます）';
-  const fields = [[elements.characterAgent,'agentId'],[elements.characterStt,'stt'],[elements.characterTts,'tts'],[elements.characterLanguage,'language'],[elements.characterImageClosed,'imageClosed'],[elements.characterImageOpen,'imageOpen']];
-  for (const [element,key] of fields) { element.value = character[key] || ''; element.disabled = !editable; }
+function openCharacterEditor(character = activeCharacter(), editable = true) {
+  editingCharacter = editable ? character : null; elements.characterKind.textContent = CHARACTER_PRESETS.some(({ id }) => id === character.id) ? 'プリセット（そのまま編集・保存できます）' : 'カスタムキャラクター';
+  const fields = [[elements.characterAgent,'agentId'],[elements.characterStt,'stt'],[elements.characterTts,'tts'],[elements.characterLanguage,'language'],[$('characterSpeaker'),'speaker'],[elements.characterImageClosed,'imageClosed'],[elements.characterImageOpen,'imageOpen']];
+  for (const [element,key] of fields) { element.value = character[key] ?? ''; element.disabled = !editable; }
   elements.characterConversationLog.checked = character.conversationLog === true;
   elements.characterConversationLog.disabled = !editable || !conversationLogConfigured;
   elements.characterConversationLogStatus.textContent = conversationLogConfigured
@@ -481,7 +470,12 @@ function speechErrorMessage(code) {
   return messages[code] || `音声認識エラー: ${code}`;
 }
 
+let speechSuppressed = false;
+function resumeHandsFreeAfterOutput() { if (!speaking) handsFree.resume(); }
+
 function stopSpeaking() {
+  speechSuppressed = true;
+  elements.voiceLabel.textContent = '声を試す';
   speechQueue?.cancel();
   speechQueue = null;
   releasePlayback?.();
@@ -503,9 +497,9 @@ function preferredVoice(language) {
   return voices.find((voice) => voice.lang.toLowerCase().startsWith(`${baseLanguage}-`));
 }
 
-async function prepareSpeech(text, provider, language, signal) {
+async function prepareSpeech(text, provider, language, signal, speaker = activeCharacter().speaker ?? 1) {
   if (provider === 'browser') return null;
-  const response = await fetch('/api/avatar/tts', { method: 'POST', signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text, provider, language }) });
+  const response = await fetch('api/avatar/tts', { method: 'POST', signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text, provider, language, speaker }) });
   if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.error || `音声合成 HTTP ${response.status}`); }
   return response.blob();
 }
@@ -573,16 +567,23 @@ function playSpeech(blob, text, provider, language, signal, isTest) {
 }
 
 function beginSpeech({ isTest = false } = {}) {
+  stopVoicePreview('');
   stopSpeaking();
+  speechSuppressed = false;
   handsFree.pause();
   const { tts: provider, language } = activeCharacter();
   speechQueue = new StreamingSpeech({
-    prepare: (text, signal) => prepareSpeech(text, provider, language, signal),
+    prepare: async (text, signal) => {
+      if (signal.aborted) return;
+      const blob = await prepareSpeech(text, provider, language, signal);
+      if (signal.aborted) return;
+      return blob;
+    },
     play: (blob, text, signal) => playSpeech(blob, text, provider, language, signal, isTest),
     onDone: () => {
       speaking = false;
       setState('idle');
-      handsFree.resume();
+      resumeHandsFreeAfterOutput();
       if (isTest) elements.voiceLabel.textContent = '声を試す';
     },
     onError: (error) => {
@@ -618,7 +619,7 @@ async function sendMessage(rawText, { displayText = '', turnKind = 'message', sc
   activeTurnId = '';
   beginSpeech();
   setState('thinking');
-  const response = await fetch('/api/avatar/message', {
+  const response = await fetch('api/avatar/message', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -658,7 +659,7 @@ async function sendUserMessage(rawText, { displayText = '', frame = null, versio
   }
   if (version !== null && (!handsFree.active || handsFree.version !== version)) return;
   setState('thinking', '発話と画面を送信中…');
-  const uploadResponse = await fetch('/api/avatar/frame', { method: 'POST', headers: { 'content-type': capturedFrame.type }, body: capturedFrame });
+  const uploadResponse = await fetch('api/avatar/frame', { method: 'POST', headers: { 'content-type': capturedFrame.type }, body: capturedFrame });
   const upload = await uploadResponse.json().catch(() => ({}));
   if (version !== null && (!handsFree.active || handsFree.version !== version)) return;
   if (!uploadResponse.ok) throw new Error(upload.error || '画面を送信できませんでした。');
@@ -671,7 +672,7 @@ async function sendUserMessage(rawText, { displayText = '', frame = null, versio
 
 async function saveConversationTurn(turn, response) {
   if (!turn?.enabled || !notionLoggingEnabled || !conversationLogConfigured || !turn.imagePath) return;
-  const result = await fetch('/api/avatar/conversation-log', {
+  const result = await fetch('api/avatar/conversation-log', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -696,7 +697,7 @@ function handleEvent(event) {
     activeThreadId = event.thread_id || activeThreadId;
     activeTurnId = event.turn_id || activeTurnId;
     responseText = '';
-    beginSpeech();
+    if (!speechSuppressed) beginSpeech();
     setState('thinking');
   } else if (event.type === 'message.delta') {
     responseText = event.full_text || `${responseText}${event.text || ''}`;
@@ -723,7 +724,7 @@ function handleEvent(event) {
     visualTurnIds.delete(event.turn_id);
     visualTurnRecords.delete(event.turn_id);
     setState('idle');
-    handsFree.resume();
+    resumeHandsFreeAfterOutput();
   } else if (event.type === 'agent.error') {
     stopSpeaking();
     void refreshModelExecution();
@@ -737,7 +738,7 @@ function handleEvent(event) {
 }
 
 function connectEvents() {
-  const source = new EventSource('/api/avatar/events');
+  const source = new EventSource('api/avatar/events');
   source.addEventListener('ready', (event) => {
     const info = JSON.parse(event.data || '{}');
     elements.connection.textContent = `${info.instance_id || 'xangi'} 接続済み`;
@@ -748,7 +749,10 @@ function connectEvents() {
   source.onerror = () => { elements.connection.textContent = 'xangiへ再接続中…'; };
 }
 
-function startRecognition() {
+async function startRecognition() {
+  try { await xangiOptionsReady; } catch (error) { showError(error.message); return; }
+  const setupError = characterSetupError(activeCharacter());
+  if (setupError) { showError(setupError); return; }
   if (microphoneMuted) { updateMicrophoneUi(); setState('idle', 'マイクはミュート中'); return; }
   if (handsFree.active) return;
   if (activeCharacter().stt === 'whisper') { startServerRecognition(); return; }
@@ -764,23 +768,22 @@ function startRecognition() {
   if (recognition) { recognition.stop(); return; }
   stopSpeaking();
   showError('');
-  recognition = new Recognition();
-  recognition.lang = activeCharacter().language;
-  recognition.continuous = false;
-  recognition.interimResults = true;
-  let transcript = '';
-  recognition.onstart = () => setState('listening');
-  recognition.onresult = (event) => {
-    transcript = Array.from(event.results).map((result) => result[0]?.transcript || '').join('');
-    showBubble(`あなた: ${transcript}`);
-  };
-  recognition.onerror = (event) => showError(speechErrorMessage(event.error));
-  recognition.onend = () => {
-    recognition = null;
-    if (transcript.trim()) sendUserMessage(transcript).catch((error) => showError(error.message));
-    else if (!elements.error.textContent) setState('idle');
-  };
-  try { recognition.start(); } catch (error) { recognition = null; showError(error.message); }
+  const native = new Recognition();
+  native.lang = activeCharacter().language;
+  native.continuous = true;
+  native.interimResults = true;
+  recognition = new ManualRecognition(native, {
+    onStart: () => { setState('listening', '聞き取り中（もう一度押して送信）'); elements.micLabel.textContent = '止めて送信'; },
+    onText: text => showBubble(`あなた: ${text}`),
+    onPause: text => {
+      setState('listening', text.trim() ? '入力を保持しています。ボタンを押して送信' : '音声がありません。ボタンを押して終了');
+      elements.micLabel.textContent = text.trim() ? '認識した内容を送信' : '聞き取りを終了';
+    },
+    onClose: () => { recognition = null; setState('idle'); },
+    onSubmit: text => { void sendUserMessage(text).catch(error => showError(error.message)); },
+    onError: error => showError(speechErrorMessage(error)),
+  });
+  try { recognition.start(); } catch (error) { cancelManualInput(); showError(error.message); }
 }
 
 async function startServerRecognition() {
@@ -802,20 +805,23 @@ async function startServerRecognition() {
       const current = recorder; recorder = null;
       recorderStream?.getTracks().forEach((track) => track.stop()); recorderStream = null;
       if (!chunks.length) { setState('idle'); return; }
+      let transcribed = false;
       try {
         setState('thinking', 'Whisperで文字起こし中…');
         const blob = new Blob(chunks, { type: current.mimeType || 'audio/webm' });
-        const response = await fetch(`/api/avatar/stt?language=${encodeURIComponent(activeCharacter().language)}`, { method: 'POST', headers: { 'content-type': blob.type }, body: blob });
+        const response = await fetch(`api/avatar/stt?language=${encodeURIComponent(activeCharacter().language)}`, { method: 'POST', headers: { 'content-type': blob.type }, body: blob });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || `音声認識 HTTP ${response.status}`);
         const assessment = assessTranscript(result);
         if (!assessment.accepted) { showError(assessment.reason); setState('idle'); return; }
         elements.audioInputStatus.textContent = `認識: 「${assessment.text}」／${activeAudioInputLabel}`;
         showBubble(`あなた: ${assessment.text}`);
+        transcribed = true;
         await sendUserMessage(assessment.text, { displayText: `あなた: ${assessment.text}` });
-      } catch (error) { showError(`音声認識エラー: ${error.message}`); }
+      } catch (error) { showError(transcribed ? error.message : `音声認識エラー: ${error.message}`); }
     };
     recorder.start(); setState('listening', '録音中（もう一度押して送信）');
+    elements.micLabel.textContent = '止めて送信';
   } catch (error) {
     recorder = null; recorderStream?.getTracks().forEach((track) => track.stop()); recorderStream = null;
     showError(error.name === 'NotAllowedError' ? 'マイクが許可されていません。ブラウザのサイト設定で許可してください。' : `マイクエラー: ${error.message}`);
@@ -835,7 +841,7 @@ function applyViewSettings() {
 }
 
 async function loadXangiOptions() {
-  const response = await fetch('/api/avatar/config');
+  const response = await fetch('api/avatar/config');
   const config = await response.json();
   if (!response.ok) throw new Error(config.error || '設定取得に失敗しました。');
   if (config.voice?.error) console.warn('server voice unavailable', config.voice.error);
@@ -870,7 +876,7 @@ async function loadXangiOptions() {
   }
 }
 async function saveCharacterSettings(characters = customCharacters, selectedCharacter = mode) {
-  const response = await fetch('/api/avatar/settings/characters', {
+  const response = await fetch('api/avatar/settings/characters', {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ customCharacters: characters, selectedCharacter }),
@@ -889,7 +895,7 @@ function renderAgentOptions(selected = '', disabled = false) {
 }
 async function refreshAgentOptions() {
   const editor = editingCharacter;
-  const response = await fetch('/api/avatar/agents');
+  const response = await fetch('api/avatar/agents');
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || 'Agent一覧を取得できませんでした。');
   availableAgents = result.agents || [];
@@ -940,20 +946,23 @@ elements.screenConversation.addEventListener('click', () => {
   if (handsFree.active) handsFree.pause();
   showError(''); stopSpeaking();
   void screenConversation.start().then(() => {
-    if (resumeHandsFree) handsFree.resume();
+    if (resumeHandsFree) resumeHandsFreeAfterOutput();
   }).catch((error) => {
     screenConversation.stop();
-    if (resumeHandsFree) handsFree.resume();
+    if (resumeHandsFree) resumeHandsFreeAfterOutput();
     if (error.name !== 'NotAllowedError') elements.screenConversationStatus.textContent = `画面共有エラー: ${error.message}`;
   });
 });
-$('handsFreeButton').addEventListener('click', () => {
+$('handsFreeButton').addEventListener('click', async () => {
   void serverAudioPlayback.unlock();
   if (handsFree.active) { handsFree.stop(); stopSpeaking(); return; }
   if (microphoneMuted) { updateMicrophoneUi(); setState('idle', 'マイクをオンにしてから開始してください'); return; }
   if (recorder || recognition) { showError('手動の聞き取りを止めてから連続会話を開始してください。'); return; }
   if (elements.avatar.dataset.state === 'thinking') { showError('返答が終わってから会話を開始してください。'); return; }
   showError(''); stopSpeaking();
+  try { await xangiOptionsReady; } catch (error) { showError(error.message); return; }
+  const setupError = characterSetupError(activeCharacter());
+  if (setupError) { showError(setupError); return; }
   void handsFree.start();
 });
 elements.microphoneMute.addEventListener('click', () => {
@@ -1000,7 +1009,7 @@ elements.saveNotionSettings.addEventListener('click', async () => {
   elements.saveNotionSettings.textContent = '確認中…';
   elements.notionSettingsStatus.textContent = 'Notionへの接続とページを確認しています。';
   try {
-    const response = await fetch('/api/avatar/settings/notion', {
+    const response = await fetch('api/avatar/settings/notion', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ parentPage: elements.notionParentPage.value }),
@@ -1035,12 +1044,7 @@ elements.refreshAgents.addEventListener('click', () => { void refreshAgentOption
 elements.characterImageClosed.addEventListener('input', editorImageChecks[0]);
 elements.characterImageOpen.addEventListener('input', editorImageChecks[1]);
 elements.characterAgent.addEventListener('change', checkEditorImages);
-$('retryCharacterImages').addEventListener('click', () => {
-  checkEditorImages();
-  const character = activeCharacter();
-  loadClosedImage(resolveCharacterImage(character.imageClosed, 'closed', character.agentId), { retry: true });
-  loadOpenImage(resolveCharacterImage(character.imageOpen, 'open', character.agentId), { retry: true });
-});
+$('retryCharacterImages').addEventListener('click', checkEditorImages);
 elements.characterClose.addEventListener('click', () => elements.characterDialog.close());
 elements.duplicateCharacter.addEventListener('click', () => {
   const source = editingCharacter || activeCharacter();
@@ -1050,7 +1054,7 @@ elements.characterForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const previousMode = mode;
   const previousSessionId = appSessionId;
-  const character = { id: editingCharacter?.id || `custom-${Date.now()}`, agentId: elements.characterAgent.value, conversationLog: elements.characterConversationLog.checked, stt: elements.characterStt.value, tts: elements.characterTts.value, language: elements.characterLanguage.value, imageClosed: elements.characterImageClosed.value || './assets/avatar-closed.png', imageOpen: elements.characterImageOpen.value || './assets/avatar-open.png' };
+  const character = { id: editingCharacter?.id || `custom-${Date.now()}`, agentId: elements.characterAgent.value, conversationLog: elements.characterConversationLog.checked, stt: elements.characterStt.value, tts: elements.characterTts.value, language: elements.characterLanguage.value, speaker: Number($('characterSpeaker').value), imageClosed: elements.characterImageClosed.value || './assets/xangi-avatar/closed.png', imageOpen: elements.characterImageOpen.value || './assets/xangi-avatar/open.png' };
   if (!availableAgents.some(({ id }) => id === character.agentId)) { elements.characterAgentStatus.textContent = '使うAgentを選択してください。'; return; }
   const nextCharacters = [...customCharacters.filter(({ id }) => id !== character.id), character];
   try {
@@ -1105,3 +1109,44 @@ xangiOptionsReady.catch((error) => showError(`xangi設定取得エラー: ${erro
 setState('idle');
 connectEvents();
 if (overlayView) connectOverlayState();
+
+// Settings preview uses unsaved values and never opens a conversation session.
+let previewController = null;
+const previewPlayback = new ServerAudioPlayback();
+function stopVoicePreview(message = '試聴を停止しました。') {
+  previewController?.abort(); previewController = null;
+  previewPlayback.stop(); window.speechSynthesis?.cancel?.();
+  $('voicePreviewStop').hidden = true;
+  $('voicePreviewStatus').textContent = message;
+}
+$('voicePreviewStop').addEventListener('click', () => stopVoicePreview());
+elements.characterDialog.addEventListener('close', () => stopVoicePreview(''));
+for (const id of ['characterTts', 'characterLanguage', 'characterSpeaker']) {
+  $(id).addEventListener('change', () => stopVoicePreview('変更した声を試せます。'));
+}
+$('voicePreview').addEventListener('click', async () => {
+  if (!$('characterSpeaker').reportValidity()) return;
+  handsFree.stop(); screenConversation.stop(); stopSpeaking(); stopVoicePreview('音声を準備中…');
+  const controller = new AbortController(); previewController = controller;
+  const { signal } = controller;
+  const provider = elements.characterTts.value, language = elements.characterLanguage.value;
+  const text = language.startsWith('en') ? 'Hello. This is a voice test.' : 'こんにちは。音声のテストです。';
+  $('voicePreviewStop').hidden = false;
+  const ended = () => { if (!signal.aborted) stopVoicePreview('試聴が終了しました。'); };
+  try {
+    if (provider === 'browser') {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = language; utterance.voice = preferredVoice(language) || null;
+      utterance.onend = ended;
+      utterance.onerror = () => { if (!signal.aborted) stopVoicePreview('音声を再生できませんでした。'); };
+      window.speechSynthesis.speak(utterance);
+      $('voicePreviewStatus').textContent = '試聴中…';
+    } else {
+      if (!await previewPlayback.unlock()) throw new Error('音声再生を有効にできませんでした。');
+      if (signal.aborted) return;
+      const blob = await prepareSpeech(text, provider, language, signal, Number($('characterSpeaker').value));
+      await previewPlayback.play(blob, { canStart: () => !signal.aborted,
+        onStart: () => { $('voicePreviewStatus').textContent = '試聴中…'; }, onEnd: ended });
+    }
+  } catch (error) { if (!signal.aborted) stopVoicePreview(`試聴できません: ${error.message}`); }
+});

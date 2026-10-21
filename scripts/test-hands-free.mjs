@@ -57,3 +57,15 @@ assert.equal(mutedSession.muted, false);
 assert.equal(resumed, 1);
 
 console.log('hands-free silence, endpoint, duration, cancellation and mute tests passed');
+
+// Output completion/unmute must never start a conversation the user did not enable.
+let unexpectedRecords = 0;
+const inactive = new HandsFree({ onChange() {}, onAudio() {}, onError(error) { throw error; } });
+inactive.stream = { getTracks: () => [{ enabled: false, stop() {} }] };
+inactive.record = () => { unexpectedRecords++; };
+inactive.resume();
+inactive.setMuted(true);
+inactive.setMuted(false);
+await new Promise(resolve => setTimeout(resolve, 450));
+assert.equal(unexpectedRecords, 0);
+assert.equal(inactive.active, false);

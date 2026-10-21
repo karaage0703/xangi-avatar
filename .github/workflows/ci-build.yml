@@ -21,6 +21,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      - uses: astral-sh/setup-uv@v9.0.0
+      - name: Whisper backend regression tests
+        run: uv run --no-project python -m unittest discover -s tests -p test_voice_worker.py
       - name: Release snapshot regression tests
         run: |
           if [ -f release-scripts/sync-release-tree.test.mjs ]; then
