@@ -79,8 +79,12 @@
             <label>音声認識<select id="characterStt"><option value="whisper">Whisper（サーバー）</option></select></label>
             <label>音声合成<select id="characterTts"><option value="piper">Piper（サーバー）</option></select></label>
             <label>言語<select id="characterLanguage"><option value="ja-JP">日本語</option><option value="en-US">英語</option></select></label>
+            <label>VOICEVOX 話者ID<input id="characterSpeaker" required type="number" min="0" max="1000000" value="1" /></label>
+            <button id="voicePreview" type="button" class="secondary-button">音声テスト</button>
+            <button id="voicePreviewStop" type="button" class="secondary-button" hidden>試聴を停止</button>
+            <p id="voicePreviewStatus" role="status">設定を保存せず、選択中の声をこの端末で試せます。</p>
           </fieldset>
-          <label>待機画像URLまたはAgentのワークスペース相対パス<input id="characterImageClosed" aria-describedby="characterImageClosedStatus" type="text" inputmode="url" placeholder="assets/avatar/closed.png" /><span id="characterImageClosedStatus" class="image-status" role="status"></span></label><label>口開き画像URLまたはAgentのワークスペース相対パス<input id="characterImageOpen" aria-describedby="characterImageOpenStatus" type="text" inputmode="url" placeholder="assets/avatar/open.png" /><span id="characterImageOpenStatus" class="image-status" role="status"></span></label>
+          <label>待機画像URLまたはAgentのワークスペース相対パス<input id="characterImageClosed" aria-describedby="characterImageClosedStatus" type="text" inputmode="url" placeholder="./assets/xangi-avatar/closed.png" /><img id="characterImageClosedPreview" class="image-preview" alt="待機画像のプレビュー" hidden /><span id="characterImageClosedStatus" class="image-status" role="status"></span></label><label>口開き画像URLまたはAgentのワークスペース相対パス<input id="characterImageOpen" aria-describedby="characterImageOpenStatus" type="text" inputmode="url" placeholder="./assets/xangi-avatar/open.png" /><img id="characterImageOpenPreview" class="image-preview" alt="口開き画像のプレビュー" hidden /><span id="characterImageOpenStatus" class="image-status" role="status"></span></label>
           <button id="retryCharacterImages" type="button" class="secondary-button">画像を再確認</button>
           <div class="dialog-actions"><button id="duplicateCharacterButton" class="secondary-button" type="button">複製して編集</button><button id="saveCharacterButton" type="submit">保存</button></div>
         </form></dialog>

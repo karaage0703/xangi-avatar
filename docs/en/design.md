@@ -2,6 +2,8 @@
 
 # xangi-avatar Design
 
+In managed mode, the extension process serves the UI and API on an automatically allocated loopback port. The host proxies requests with a dedicated bearer token; browser assets, SSE, images and audio use the host origin. No fixed-port child server or external launcher URL is needed. Standalone access controls remain unchanged.
+
 xangi owns agents, sessions, backends, models, workspaces, messages, and events. xangi-avatar owns browser capture, microphone selection, STT/TTS, rendering, and OBS synchronization. The public xangi-pets robot is bundled in blue, green, and orange; blue is the unconfigured default.
 
 The Node server is a same-origin proxy. It creates a session using the selected xangi agent, then sends messages through the generic device inbox. It has no dependency on or fallback to the xangi-pets endpoint. A missing selected microphone falls back to the system default, while the actual opened track label is shown in the UI. Hands-free mode calibrates its RMS speech threshold from 0.6 seconds of ambient audio, requires 400 ms of voice, pauses during AI and TTS work, and discards stale results after stopping. Software microphone mute uses the same pause mechanism, keeping screen sharing and the conversation session active while input is disabled.
@@ -44,3 +46,7 @@ The microphone stays paused between chunks until both generation and playback fi
 Whitespace-only completion changes are matched against committed speech. A final answer already emitted as the suffix of streamed commentary is not repeated.
 
 Browser entry points (production and Vite dev/preview) protect all routes with server/access.mjs. Direct loopback requests require a local Host and no proxy headers. Serve requests require the configured public Host and allowed login. Writes require a matching Origin; cross-site/same-site API requests are denied. This is separate from the internal gateway bearer authentication.
+
+Voice preview uses unsaved character settings and its own cancellable browser playback. It never opens an Agent session. Stackchan output is independent and has no relay API in Avatar.
+
+Default and empty image fields use `./assets/xangi-avatar/{closed,open}.png`. Relative paths resolve in the selected agent’s workspace and are never intercepted by bundled preset aliases.

@@ -4,19 +4,19 @@
 
 ## Add as a xangi extension
 
-Enter `https://github.com/karaage0703/xangi-avatar` in xangi's extension installer. Run `./scripts/prepare-update` in the downloaded directory, then register and start the manifest. The managed runtime inherits the host xangi URL. Open the extension UI and select “Avatarを開く” to open the dedicated Avatar page. Updates run the same dependency installation and build step.
+Enter `https://github.com/karaage0703/xangi-avatar` in xangi's extension installer. Run `./scripts/prepare-update` in the downloaded directory, then register and start the manifest. The managed runtime inherits the host xangi URL. Open Avatar from the extension list on the host port. Updates run the same dependency installation and build step.
 
 If a temporary launcher with the same ID already exists, inspect its registration, running port and settings before proposing migration. Do not automatically remove the registration, stop an existing process or move settings.
 
 Persistent data uses `AVATAR_DATA_DIR`, otherwise `DATA_DIR/extensions/data/xangi-avatar`, or `<workspace>/.xangi/extensions/data/xangi-avatar` when DATA_DIR is unset. Character settings, Notion destination, captures and voice files survive source updates. Put configuration in `config.env` inside this data directory (mode 0600 when it contains secrets). Existing settings are not automatically migrated.
 
-The default listener is `127.0.0.1:4173`; the launcher opens `http://localhost:4173/` on the same computer. Port conflicts fail startup. Use `AVATAR_PORT` for side-by-side testing.
+Managed mode allocates a loopback port automatically. Open `/api/extensions/xangi-avatar/service/` on the xangi host: assets, API, SSE, audio and images all use its port. This requires a host with streaming and binary extension proxy support. `AVATAR_PORT`, `AVATAR_HOST`, and `AVATAR_PUBLIC_URL` do not change the managed UI URL. Microphone and screen capture require HTTPS or localhost on the host. Standalone mode retains its existing listener and access controls.
 
-For remote devices configure Tailscale Serve identity authentication; see [access protection](docs/en/usage.md#browser-and-api-access-protection). Localhost needs no extra login.
+Managed mode follows the host access controls. For standalone remote access, configure Tailscale Serve identity authentication; see [access protection](docs/en/usage.md#browser-and-api-access-protection). Localhost needs no extra login.
 
 Speech recognition and local Piper need separate setup. Set `AVATAR_VOICE_ROOT` for existing voice assets or `AVATAR_VOICE_URL` for an external voice server. When running `npm run setup:voice -- /path/to/xangi-stackchan`, set `AVATAR_VOICE_ROOT` to the persistent voice directory. Browser speech does not need a voice server.
 
-## Prepare Avatar
+## Prepare standalone Avatar
 
 1. Check that Node.js 20.19+ or 22.12+, npm, and xangi are available. Do not install system packages or use `sudo` automatically.
 2. Copy `.env.example` to `.env` and configure the target xangi instance. Only if you want Notion conversation logs, set `NOTION_API_KEY` or an absolute `NOTION_API_KEY_FILE`, plus `NOTION_CONVERSATION_PARENT_PAGE_ID`. Never print secret values.

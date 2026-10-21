@@ -29,18 +29,19 @@ try {
   assert.equal((await fetch(ready.baseUrl+'/health')).status,401);
   const auth={authorization:'Bearer fixture-token'};
   assert.equal((await fetch(ready.baseUrl+'/health',{headers:auth})).status,200);
-  const html=await (await fetch(ready.baseUrl+'/',{headers:auth})).text();assert.match(html,/Avatarを開く/);assert.match(html,new RegExp(`localhost:${port}`));assert.ok(!html.includes('fixture-token'));
-  const config=await (await fetch(`http://127.0.0.1:${port}/api/avatar/config`)).json();assert.equal(config.agents[0].id,'fixture');
-  const page=await (await fetch(`http://127.0.0.1:${port}/`)).text();assert.match(page,/<title>/);
-  const response=await fetch(`http://127.0.0.1:${port}/api/avatar/settings/characters`,{method:'PUT',headers:{'content-type':'application/json',origin:`http://127.0.0.1:${port}`},body:JSON.stringify(saved)});assert.equal(response.status,200);
+  const html=await (await fetch(ready.baseUrl+'/ui',{headers:auth})).text();assert.match(html,/location.replace/);assert.match(html,/service/);assert.ok(!html.includes('fixture-token'));
+  assert.notEqual(new URL(ready.baseUrl).port, String(port));
+  assert.equal((await fetch(ready.baseUrl+'/api/avatar/config')).status,401);
+  const config=await (await fetch(ready.baseUrl+'/api/avatar/config',{headers:auth})).json();assert.equal(config.agents[0].id,'fixture');
+  const page=await (await fetch(ready.baseUrl+'/',{headers:auth})).text();assert.match(page,/<title>/);
+  const response=await fetch(ready.baseUrl+'/api/avatar/settings/characters',{method:'PUT',headers:{...auth,'content-type':'application/json',origin:ready.baseUrl},body:JSON.stringify(saved)});assert.equal(response.status,200);
   const bytes=await readFile(join(dir,'character-settings.json'));
-  await stop();await assert.rejects(fetch(`http://127.0.0.1:${port}/`));
+  await stop();await assert.rejects(fetch(ready.baseUrl+'/',{headers:auth}));
   await writeFile(join(dir,'config.env'),'AVATAR_PUBLIC_URL=https://avatar.example/\n');
-  ready=await start();assert.ok((await (await fetch(ready.baseUrl+'/',{headers:auth})).text()).includes('https://avatar.example/'));
+  ready=await start();assert.match(await (await fetch(ready.baseUrl+'/ui',{headers:auth})).text(), /service/);
   assert.deepEqual(await readFile(join(dir,'character-settings.json')),bytes);await stop();
   reserve.listen(port,'127.0.0.1');await once(reserve,'listening');
-  child=spawn('./scripts/xangi-extension',['serve','--workspace',dir],{env:{PATH:process.env.PATH,AVATAR_DATA_DIR:dir,AVATAR_PORT:String(port),XANGI_EXTENSION_AUTH_TOKEN:'fixture-token'},stdio:['pipe','pipe','pipe']});
-  let output='';child.stdout.on('data',chunk=>output+=chunk);child.stderr.resume();const [exit]=await once(child,'exit');assert.notEqual(exit,0);assert.ok(!output.includes('"event":"ready"'));child=undefined;
+  ready=await start(); assert.notEqual(new URL(ready.baseUrl).port, String(port)); await stop();
   await new Promise(done=>reserve.close(done));
-  console.log('managed extension: manifest, authenticated gateway, host Agent API, UI, persistent settings, config reload, shutdown and port collision passed');
+  console.log('managed extension: manifest, authenticated gateway, host Agent API, UI, persistent settings, config reload, shutdown and automatic port allocation passed');
 } finally {if(child)child.kill('SIGKILL');upstream.closeAllConnections();await new Promise(done=>upstream.close(done));await rm(dir,{recursive:true,force:true});}

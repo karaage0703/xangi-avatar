@@ -26,6 +26,17 @@ try {
   assert.deepEqual(await store.getSettings(), saved);
   assert.equal((await readFile(settingsFile, 'utf8')).endsWith('\n'), true);
   assert.equal((await store.saveSettings({ customCharacters: saved.customCharacters, selectedCharacter: 'game-partner' })).selectedCharacter, 'game-partner');
+  const presetSaved = await store.saveSettings({ customCharacters: [...saved.customCharacters, { id: 'xangi-assistant', agentId: 'xangi:default', stt: 'browser', tts: 'voicevox', imageClosed: 'custom/closed.png' }], selectedCharacter: 'xangi-assistant' });
+  const reopened = createCharacterSettingsStore({ settingsFile });
+  assert.deepEqual(await reopened.getSettings(), presetSaved);
+  assert.equal(presetSaved.customCharacters.length, 2);
+  assert.equal(presetSaved.customCharacters[1].tts, 'voicevox');
+  assert.equal(presetSaved.customCharacters[1].imageClosed, 'custom/closed.png');
+  assert.equal(presetSaved.customCharacters[1].imageOpen, './assets/xangi-avatar/open.png');
+  const defaults = await store.saveSettings({ customCharacters: [{ id: 'custom-default', agentId: 'a1', imageClosed: '', imageOpen: '' }] });
+  assert.equal(defaults.customCharacters[0].imageClosed, './assets/xangi-avatar/closed.png');
+  assert.equal(defaults.customCharacters[0].imageOpen, './assets/xangi-avatar/open.png');
+  assert.deepEqual(await reopened.getSettings(), defaults);
   await assert.rejects(() => store.saveSettings({ customCharacters: [{ id: 'preset', name: 'invalid' }] }), /custom-\*/);
   await assert.rejects(() => store.saveSettings({ customCharacters: [{ id: 'custom-1', agentId: 'a1', name: 'one' }, { id: 'custom-1', agentId: 'a1', name: 'two' }] }), /unique/);
 } finally {

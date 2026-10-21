@@ -2,6 +2,8 @@
 
 # xangi-avatar Usage
 
+For managed use, open Avatar from the host extension list. The browser uses the host URL without a separate port. The localhost and Tailscale settings below apply to standalone mode. Managed access follows the host boundary; microphone and screen capture require HTTPS or localhost on the host.
+
 Copy `.env.example` to `.env`, run `npm run setup:voice -- /path/to/xangi-stackchan` once, then `npm run build && npm start`. `XANGI_TOKEN` is optional and needed only when xangi requires bearer authentication. faster-whisper uses `medium` by default.
 
 Conversations and relative avatar images use the selected xangi agent’s workspace. Avatar has no workspace selector and never automatically registers or switches preset workspaces. Optionally run `npm run setup:workspaces` to register the bundled english/game samples, then assign one to the agent in xangi.
@@ -38,7 +40,7 @@ The game commentary and English conversation sample workspaces can help you crea
 
 ### Bundled avatars
 
-Closed/open PNGs live in `workspaces/<english|game>/assets/xangi-avatar/<english|game>/`. Bundled images work before workspace registration. Empty image fields use the blue default. Keep other characters in your own workspace, outside this repository. The bundled robot artwork is the project author’s own work and is distributed under the same [MIT license](../../LICENSE) as the code. User-added artwork remains subject to the terms set by its respective rights holders.
+Closed/open PNGs live in `workspaces/<english|game>/assets/xangi-avatar/`. The default paths (also used for empty fields) are `./assets/xangi-avatar/closed.png` and `./assets/xangi-avatar/open.png`, resolved in the selected agent’s workspace. If no agent is selected or an image cannot be loaded, the blue bundled image is shown. Existing explicit paths remain supported. Keep other characters in your own workspace, outside this repository. The bundled robot artwork is the project author’s own work and is distributed under the same [MIT license](../../LICENSE) as the code. User-added artwork remains subject to the terms set by its respective rights holders.
 
 With controls visible, the panel sits below the complete character. Short screens can scroll the page. Hidden-control and OBS views keep their existing layout.
 
@@ -84,3 +86,11 @@ Local processes and the local Tailscale Serve daemon are trusted. This does not 
 `npm run dev` uses localhost:1420; `npm run preview` also applies the access guard. Export the Tailnet environment variables when using development mode.
 
 Reference: https://tailscale.com/docs/features/tailscale-serve#identity-headers
+
+## Preview a voice
+
+In character settings, choose the synthesis provider, language and VOICEVOX speaker ID, then press the voice test button. Preview uses the unsaved settings in this browser without creating a conversation. Stop, change a voice field or close the dialog to cancel. Stackchan runs its own independent avatar mode.
+
+Unpunctuated streamed responses begin synthesis every 80 characters instead of waiting for completion.
+
+The image recheck button previews both images using the unsaved paths and selected agent. Missing or invalid images show a warning without a substitute image.

@@ -2,6 +2,8 @@
 
 # xangi-avatar 使い方
 
+拡張として使う場合は、本体の拡張一覧から開きます。ブラウザのURLは本体配下になり、個別のポート設定は不要です。以下のlocalhost・Tailscale設定は単独起動向けです。拡張モードでは本体の公開範囲がアクセス制御になり、マイク・画面共有には本体のHTTPSまたはlocalhostが必要です。
+
 ## 初期設定
 
 `.env.example`を`.env`へコピーします。`XANGI_URL`は接続するxangi、`XANGI_TOKEN`は接続先がBearer認証を要求するときだけ設定します。faster-whisperは `AVATAR_WHISPER_MODEL=medium` が既定です。Notion会話記録を使う場合だけ、`NOTION_API_KEY`またはmode 0600のtoken fileを指す`NOTION_API_KEY_FILE`を設定します。保存先は`NOTION_CONVERSATION_PARENT_PAGE_ID`を初期値にでき、起動後は設定画面へNotionページURLまたはIDを入力して変更できます。WebUIで保存した値は`.runtime/notion-settings.json`に保持され、次の記録から再起動なしで反映されます。APIキーはブラウザへ返しません。
@@ -17,15 +19,15 @@ npm start
 
 ## キャラクターとLocal LLM
 
-xangi本体でAgentを作成し、名前・役割・指示・AI・ワークスペースを設定します。Avatarの設定→キャラクター管理でプリセットを複製し、「使うAgent」を選択して保存します。Agent一覧が空の場合は本体で作成してから「Agent一覧を更新」を押してください。Avatarでは画像・音声を設定します。Local LLMモードと推論設定も本体Agentの設定を使います。未選択・削除済みのAgentでは会話を開始せず、選び直しを案内します。
+xangi本体でAgentを作成し、名前・役割・指示・AI・ワークスペースを設定します。Avatarの設定→キャラクター管理でプリセットを開き、「使うAgent」を選択して保存します。Agent一覧が空の場合は本体で作成してから「Agent一覧を更新」を押してください。Avatarでは画像・音声を設定します。Local LLMモードと推論設定も本体Agentの設定を使います。未選択・削除済みのAgentでは会話を開始せず、選び直しを案内します。
 
 カスタムキャラクターと現在の選択はDGX側の`.runtime/character-settings.json`へ保存され、同じxangi-avatarへ接続するブラウザ間で共有されます。別checkoutでも同じ保存先を使う場合は、`.env`の`AVATAR_CHARACTER_SETTINGS_FILE`へ共有先の絶対pathを設定します。
 
 ユーザー固有画像は選択したAgentのワークスペースへ配置します。
 
 ```text
-assets/xangi-avatar/my-character/closed.png
-assets/xangi-avatar/my-character/open.png
+./assets/xangi-avatar/closed.png
+./assets/xangi-avatar/open.png
 ```
 
 PNG、JPEG、WebP、GIFとHTTPS URLに対応します。相対パスはワークスペース外へ出られません。
@@ -34,7 +36,7 @@ PNG、JPEG、WebP、GIFとHTTPS URLに対応します。相対パスはワーク
 
 歯車の「入力マイク」で機器を選びます。初回許可後に実際に使用中の機器名が表示され、選択機器が外れた場合はシステムのデフォルトへ戻ります。
 
-- 「マイクで話す」: 押して録音、もう一度押して送信
+- 「話しかける」: Whisper・ブラウザ音声認識ともに、押して入力を開始し、「止めて送信」を押して送信。ブラウザが無音などで認識を終了した場合も自動送信せず、「認識した内容を送信」を押すまで文章を保持します（終了後の追加発話は取り込まれません）。
 - 「連続会話を開始」: 約1秒の無音で自動送信し、読み上げ後に聞き取りを再開
 - 「画面共有を開始」: ウィンドウ共有だけを開始し、音声またはテキスト送信時の画面を添付
 - 「マイクをミュート」: 画面共有と会話Sessionを維持したまま、マイク入力だけを一時停止
@@ -75,7 +77,7 @@ Agent作成には同梱のゲーム実況・英会話サンプルワークスペ
 
 ### 同梱アバター
 
-各プリセットの口閉じ・口開きPNGは `workspaces/<english|game>/assets/xangi-avatar/<english|game>/` にあります。登録前でも同梱画像を表示できます。画像欄が空なら青の標準画像を使います。別キャラクターの画像はリポジトリへ追加せず、利用者のワークスペースへ配置してください。同梱ロボット画像は作者自身の作品で、コードと同じ [MITライセンス](../LICENSE) で配布します。利用者が追加する画像には、それぞれの権利者が定めた利用条件が適用されます。
+各プリセットの口閉じ・口開きPNGは `workspaces/<english|game>/assets/xangi-avatar/` にあります。画像欄の初期値・空欄は `./assets/xangi-avatar/closed.png` と `./assets/xangi-avatar/open.png` です。選択したAgentのワークスペースから読み込み、Agent未選択や画像を読み込めない場合は青の標準画像を表示します。既存の明示指定パスはそのまま使用できます。別キャラクターの画像はリポジトリへ追加せず、利用者のワークスペースへ配置してください。同梱ロボット画像は作者自身の作品で、コードと同じ [MITライセンス](../LICENSE) で配布します。利用者が追加する画像には、それぞれの権利者が定めた利用条件が適用されます。
 
 操作パネルを表示している間は、キャラクター全体の下にパネルを配置します。縦に収まらない小さな画面ではページをスクロールできます。操作パネル非表示・OBS用表示は従来どおりです。
 
@@ -120,3 +122,14 @@ AVATAR_TRUSTED_TAILSCALE_LOGIN=you@example.com
 開発起動は `npm run dev`（localhost:1420）、previewは `npm run preview`。どちらも同じ保護を使います。Tailnet設定を開発起動で使う場合は環境変数として渡してください。
 
 参照: https://tailscale.com/docs/features/tailscale-serve#identity-headers
+
+
+## 設定中の声を試す
+
+キャラクター管理の音声設定で方式・言語・VOICEVOX話者IDを選び、「音声テスト」を押すと、保存前の設定をこのブラウザで試聴できます。「試聴を停止」、設定変更、ダイアログを閉じる操作で停止します。会話やAgentセッションは作成しません。メイン画面の「声を試す」は保存済みの声を使います。
+
+映像と音声はブラウザ内で動作します。Stackchanの独立アバターモードはStackchan側の設定画面で設定してください。
+
+句読点のない長い返答でも80文字ごとに合成を始め、返答完了まで待たずに読み上げます。
+
+「画像を再確認」は保存前のパスとAgentで2枚をプレビューします。画像がない・読めない場合は代替画像を表示せず警告します。

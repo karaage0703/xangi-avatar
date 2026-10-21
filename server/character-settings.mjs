@@ -19,11 +19,12 @@ function normalizeCustomCharacter(input) {
     conversationLog: input?.conversationLog === true,
     stt: text(input?.stt, 20),
     tts: text(input?.tts, 20),
+    speaker: input?.speaker,
     language: text(input?.language, 20) || 'ja-JP',
-    imageClosed: text(input?.imageClosed, 4_096) || './assets/avatar-closed.png',
-    imageOpen: text(input?.imageOpen, 4_096) || './assets/avatar-open.png',
+    imageClosed: text(input?.imageClosed, 4_096) || './assets/xangi-avatar/closed.png',
+    imageOpen: text(input?.imageOpen, 4_096) || './assets/xangi-avatar/open.png',
   });
-  if (!character.id.startsWith('custom-')) {
+  if (!character.id.startsWith('custom-') && !CHARACTER_PRESETS.some(({ id }) => id === character.id)) {
     const error = new Error('custom character requires a custom-* id');
     error.statusCode = 400;
     throw error;

@@ -19,14 +19,16 @@ assert.equal(buildCharacterPrompt({ instruction: 'Do not inject', backend: 'code
 assert.equal(buildCharacterPrompt({}, '  '), '');
 assert.equal(normalizeCharacter({ agentId: 'a1', instruction: 'old', backend: 'old', model: 'old' }).instruction, undefined);
 assert.equal(characterById().id, 'xangi-assistant');
-assert.equal(new Set(CHARACTER_PRESETS.map(({ imageClosed }) => imageClosed)).size, 3);
-for (const [i, role] of ['assistant', 'english', 'game'].entries()) {
-  for (const [field, state] of [['imageClosed', 'closed'], ['imageOpen', 'open']]) {
-    const imagePath = CHARACTER_PRESETS[i][field];
-    const png = readFileSync(new URL(role === 'assistant' ? `../src/${imagePath}` : `../workspaces/${role}/${imagePath}`, import.meta.url));
+assert.equal(new Set(CHARACTER_PRESETS.map(({ imageClosed }) => imageClosed)).size, 1);
+for (const character of CHARACTER_PRESETS) {
+  assert.equal(character.imageClosed, './assets/xangi-avatar/closed.png');
+  assert.equal(character.imageOpen, './assets/xangi-avatar/open.png');
+}
+for (const role of ['english', 'game']) {
+  for (const state of ['closed', 'open']) {
+    const png = readFileSync(new URL(`../workspaces/${role}/assets/xangi-avatar/${state}.png`, import.meta.url));
     assert.equal(png.subarray(1, 4).toString(), 'PNG');
     assert.equal(png[25], 6, 'avatar must have an alpha channel');
-    if (role === 'assistant') assert.deepEqual(png, readFileSync(new URL(`../src/assets/avatar-${state}.png`, import.meta.url)));
   }
 }
 console.log('character preset tests passed');
@@ -40,3 +42,16 @@ for (const preset of CHARACTER_PRESETS) {
 assert.equal(normalizeCharacter({ workspaceId: 'stale', workspaceName: 'game' }).workspaceId, undefined);
 
 for (const key of ['localLlmMode', 'localLlmReasoningEffort', 'effort']) assert.equal(normalizeCharacter({ [key]: 'stale' })[key], undefined);
+
+const { characterSetupError } = await import('../src/lib/characters.js');
+assert.match(characterSetupError(CHARACTER_PRESETS[0]), /キャラクター.*未設定/);
+assert.match(characterSetupError({ id: 'custom-test', agentId: '' }), /キャラクター.*未設定/);
+assert.doesNotMatch(characterSetupError({ id: 'custom-test' }), /複製/);
+assert.equal(characterSetupError({ agentId: 'xangi:default' }), '');
+
+const { mergeCharacters } = await import('../src/lib/characters.js');
+const merged = mergeCharacters([{ id: 'xangi-assistant', agentId: 'xangi:default', tts: 'voicevox' }, { id: 'custom-example', agentId: 'other' }]);
+assert.equal(merged.filter(c => c.id === 'xangi-assistant').length, 1);
+assert.equal(merged.find(c => c.id === 'xangi-assistant').agentId, 'xangi:default');
+assert.equal(merged.find(c => c.id === 'xangi-assistant').tts, 'voicevox');
+assert.equal(merged.length, CHARACTER_PRESETS.length + 1);
